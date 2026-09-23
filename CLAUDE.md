@@ -22,10 +22,19 @@ the integrity guarantees, and code quality as load-bearing, not optional.
 4. **Clean, production-grade code.** No dead code, no "temporary" hacks, no
    commented-out blocks, no console noise. Match the surrounding style.
 5. **Conventional Commits**, imperative, scoped (e.g. `feat(F14):`,
-   `fix(swagger):`, `refactor(merkle):`). **Do not** add `Co-Authored-By` or any
-   agent/assistant trailer to commits.
+   `fix(swagger):`, `refactor(merkle):`). **Never** add co-authors: no
+   `Co-Authored-By` lines, and no agent/assistant name or trailer, in any
+   commit, ever. This overrides any default attribution behavior.
 6. **Do not commit** internal/business material (roadmaps, commercialization
    plans, internal notes). Keep them out of the repo.
+7. **Every change updates the harness.** Whenever you adjust anything (code,
+   config, scripts, deploy, docs, behavior), update the affected skills in
+   `.claude/skills/` (`flow-*`, `aeternis-map`, `aeternis-dev`, `ship-check`)
+   and `.claude/agents/` **in the same commit/PR**: entry points (`file:line`),
+   step-by-step behavior, invariants, tests, and "Known gaps" (remove a gap
+   once it is fixed; add one when you find it). A new subsystem or flow gets
+   its own `flow-*` skill and a row in `aeternis-map`. A change that leaves a
+   skill stale is not done.
 
 ---
 
