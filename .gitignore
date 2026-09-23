@@ -33,3 +33,7 @@ hybrid-architecture/fabric-network/channel-artifacts/
 # Editors / IDEs
 .idea/
 .vscode/
+
+# Claude Code: per-user settings and session worktrees (the shared harness in .claude/ is versioned)
+.claude/settings.local.json
+.claude/worktrees/
