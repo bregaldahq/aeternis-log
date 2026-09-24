@@ -11,7 +11,8 @@ import (
 )
 
 // TestCreateRecord verifies the request shape and the trustless hash check: the
-// server (here mimicked) computes the same hash the client did.
+// server (here mimicked) hashes new records under the v2 scheme, exactly like
+// the real API, and the client must independently compute the same hash.
 func TestCreateRecord(t *testing.T) {
 	var got map[string]interface{}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -19,10 +20,11 @@ func TestCreateRecord(t *testing.T) {
 		_ = json.Unmarshal(body, &got)
 
 		rec := &Record{
-			ID:        got["id"].(string),
-			Timestamp: got["timestamp"].(string),
-			Source:    got["source"].(string),
-			Payload:   got["payload"].(map[string]interface{}),
+			ID:          got["id"].(string),
+			Timestamp:   got["timestamp"].(string),
+			Source:      got["source"].(string),
+			Payload:     got["payload"].(map[string]interface{}),
+			HashVersion: 2,
 		}
 		w.WriteHeader(http.StatusCreated)
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
@@ -38,6 +40,9 @@ func TestCreateRecord(t *testing.T) {
 	}
 	if rec.Domain != "audit" || rec.Source != "crm" || rec.ID == "" {
 		t.Errorf("unexpected record: %+v", rec)
+	}
+	if rec.HashVersion != 2 {
+		t.Errorf("created record must carry the server's hash version 2, got %d", rec.HashVersion)
 	}
 	if got["source"] != "crm" {
 		t.Errorf("server did not receive source, got %v", got)
@@ -58,6 +63,28 @@ func TestCreateRecordHashMismatch(t *testing.T) {
 	c := New(srv.URL)
 	if _, err := c.CreateRecord(context.Background(), "audit", "crm", map[string]interface{}{"k": 1}, nil); err == nil {
 		t.Error("expected an error when the server hash does not match the local hash")
+	}
+}
+
+// TestVerifyBatchExposesAnchor verifies that the on-chain root and anchor status
+// are surfaced, so callers can tell a ledger-backed verdict from a local-only one
+// and can compare a locally recomputed root against the ledger, not the database.
+func TestVerifyBatchExposesAnchor(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"batch_id":"b1","is_valid":true,"num_logs":3,
+			"original_merkle_root":"db","recalculated_merkle_root":"chain",
+			"on_chain_merkle_root":"chain","anchor_status":"ANCHORED",
+			"integrity":"VALID","message":"ok"}`))
+	}))
+	defer srv.Close()
+
+	res, err := New(srv.URL).VerifyBatch(context.Background(), "audit", "b1")
+	if err != nil {
+		t.Fatalf("verify: %v", err)
+	}
+	if res.OnChainMerkleRoot != "chain" || res.AnchorStatus != "ANCHORED" || res.NumRecords != 3 {
+		t.Errorf("anchor fields not exposed: %+v", res)
 	}
 }
 

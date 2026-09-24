@@ -30,11 +30,11 @@ def _http_error(code, body):
 
 
 def _good_server(req, timeout=None):
-    """Simulate a correct server: echo back the hash the client would compute."""
+    """Simulate the real server: it hashes new records under the v2 scheme."""
     body = json.loads(req.data.decode())
     rec = Record(
         id=body["id"], timestamp=body["timestamp"], source=body["source"],
-        payload=body["payload"], hash_fields=body.get("hash_fields"),
+        payload=body["payload"], hash_fields=body.get("hash_fields"), hash_version=2,
     )
     return _Resp(json.dumps({"data": {"id": body["id"], "hash": rec.compute_hash()}}))
 
@@ -51,6 +51,7 @@ class TestClient(unittest.TestCase):
         with mock.patch("aeternislog.client.urllib.request.urlopen", side_effect=_good_server):
             rec = self.client.create_record("audit", "app", {"event": "login", "n": 3})
         self.assertEqual(len(rec.id), 32)  # 16 random bytes hex
+        self.assertEqual(rec.hash_version, 2)
         self.assertEqual(rec.hash, rec.compute_hash())
 
     def test_create_record_hash_mismatch_raises(self):
@@ -100,6 +101,19 @@ class TestClient(unittest.TestCase):
             res = self.client.verify_batch("audit", "b1")
         self.assertFalse(res.is_valid)
         self.assertEqual(res.integrity, "CORRUPTED")
+
+    def test_verify_exposes_anchor(self):
+        body = json.dumps({
+            "batch_id": "b1", "is_valid": True, "num_logs": 3,
+            "original_merkle_root": "db", "recalculated_merkle_root": "chain",
+            "on_chain_merkle_root": "chain", "anchor_status": "ANCHORED",
+            "integrity": "VALID", "message": "ok",
+        })
+        with mock.patch("aeternislog.client.urllib.request.urlopen", side_effect=lambda *a, **k: _Resp(body)):
+            res = self.client.verify_batch("audit", "b1")
+        self.assertEqual(res.on_chain_merkle_root, "chain")
+        self.assertEqual(res.anchor_status, "ANCHORED")
+        self.assertEqual(res.num_records, 3)
 
     def test_batch_result_parsed(self):
         body = json.dumps({

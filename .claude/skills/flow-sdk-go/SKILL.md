@@ -23,10 +23,11 @@ Module `github.com/RicardoMBregalda/aeternis-log/sdk/go`, package
 | API | Behavior |
 |---|---|
 | `New(baseURL, ...Option)` | 10 s HTTP timeout, 3 retries. Options: `WithAPIKey` (sent as `X-API-Key`), `WithHTTPClient`, `WithMaxRetries` |
-| `CreateRecord(ctx, domain, source, payload, hashFields)` | Generates the **id** (128-bit hex) and **timestamp** (RFC3339 UTC) client-side, computes the hash locally, POSTs, then **fails if the server hash ≠ local hash** |
+| `CreateRecord(ctx, domain, source, payload, hashFields)` | Generates the **id** (128-bit hex) and **timestamp** (RFC3339 UTC) client-side, sets `HashVersion = CurrentHashVersion`, computes the hash locally, POSTs, then **fails if the server hash ≠ local hash** |
+| `CurrentHashVersion` (`record.go`) | The server's current scheme (2). Must track `models.CurrentHashVersion` in the API |
 | `GetRecord(ctx, domain, id)` | → `*Record` (includes `hash_version`, `batch_id`, `merkle_root`) |
 | `BatchRecords(ctx, domain)` | POST `/records/batch` with `{}` (server default size 100) → `BatchResult` |
-| `VerifyBatch(ctx, domain, batchID)` | 200 → result. **409 is decoded into a result** (`IsValid=false`), not returned as an error |
+| `VerifyBatch(ctx, domain, batchID)` | 200 → result. **409 is decoded into a result** (`IsValid=false`), not returned as an error. `VerifyResult` carries `OnChainMerkleRoot` (the root to trust for local verification), `AnchorStatus` (`ANCHORED` / `UNANCHORED` / `UNKNOWN`), `NumRecords`, `Message`, and the database/recomputed roots |
 | `Record.ComputeHash()` / `MerkleRoot([]*Record)` / `VerifyRecordsLocally(recs, root)` | Local mirror of `models` (v1 + v2 dispatch by `HashVersion`) |
 | `APIError{StatusCode, Body}` | Non-retried 4xx, or the last 5xx |
 
@@ -35,23 +36,19 @@ with **linear** backoff `attempt × 200 ms` (context-aware). 4xx is returned
 immediately. `CreateRecord` retries are **safe** because the id is fixed
 client-side: a retried create either succeeds or gets `409` (already there).
 
-## Known bugs (verify, then fix test-first)
+## Known gaps
 
-1. **v1/v2 mismatch in `CreateRecord`.** The local `Record` is built without
-   `HashVersion`, so `ComputeHash()` uses **v1**, while the server hashes new
-   records with **v2**. Against a real API, `CreateRecord` should always fail
-   with `server hash … does not match local hash`. The unit test
-   (`TestCreateRecord`) does not catch it because its fake server also
-   computes v1. `TestSDKLive` (integration tag) would. The fix is to set
-   `HashVersion: 2` (a current-version constant) on the local record, and to
-   make the fake server compute v2.
-2. A retried `CreateRecord` that hits `409` (the first attempt landed but its
-   response was lost) is returned as an error. Callers cannot tell "already
-   created with my id" from a real conflict. Consider treating 409 plus a
-   GET-and-compare as success.
-3. `VerifyResult` omits `on_chain_merkle_root` and `anchor_status`, so SDK
-   users cannot tell ANCHORED-VALID from UNKNOWN (local-only) results. Add
-   the fields (additive).
+- A retried `CreateRecord` that hits `409` (the first attempt landed but its
+  response was lost) is returned as an error. Callers cannot tell "already
+  created with my id" from a real conflict. Consider treating 409 plus a
+  GET-and-compare as success.
+- `CurrentHashVersion` is a copy of the server constant. When the server
+  moves to v3, bump it here in the same PR (the conformance vector test
+  catches drift only for the pinned version).
+
+Test fakes must behave like the real server: `TestCreateRecord`'s fake hashes
+under v2. A fake that uses a different scheme than the server is what hid the
+v1/v2 bug fixed in `fix(sdk)`.
 
 ## Tests
 

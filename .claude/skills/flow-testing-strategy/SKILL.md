@@ -69,13 +69,14 @@ isolation (skipped when `KEY2=""`, which `make smoke` sets). Env: `BASE`, `METRI
   isolation).
 - No test that deleting a **batched** record keeps `verify` VALID.
 - No chaincode test for same-tenant write-once ("already anchored").
-- The SDK fake servers compute **v1** hashes, which masks a v1/v2 bug
-  (`flow-sdk-go`, `flow-sdk-python`).
 - No aggregation test for audit reports. No keyset test for equal
   `created_at`.
 
 ## Rules
 
+- **Fakes must behave like the real component.** A fake server that hashes
+  with a different scheme than the API hid a v1/v2 bug in both SDKs until
+  `fix(sdk)`. When the real behavior changes, update its fakes in the same PR.
 - A guarantee test for every change to the integrity or isolation surface:
   tamper → CORRUPTED, cross-tenant → not found, legacy version still
   verifies, and so on.

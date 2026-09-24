@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 from typing import Any, Mapping, Optional, Sequence
 
 from .errors import APIError, HashMismatchError
-from .record import Record
+from .record import CURRENT_HASH_VERSION, Record
 
 
 @dataclass
@@ -47,20 +47,37 @@ class BatchResult:
 
 @dataclass
 class VerifyResult:
+    """Outcome of a server-side batch verification.
+
+    ``on_chain_merkle_root`` is the root read from the ledger — the value to
+    compare a locally recomputed root against. ``original_merkle_root`` is only
+    the root stored in the database. ``anchor_status`` says whether the verdict
+    was decided against the ledger (``ANCHORED``), only against local state
+    (``UNKNOWN``), or the batch is not on the ledger (``UNANCHORED``).
+    """
+
     batch_id: str = ""
     is_valid: bool = False
+    num_records: int = 0
     original_merkle_root: str = ""
     recalculated_merkle_root: str = ""
+    on_chain_merkle_root: str = ""
+    anchor_status: str = ""
     integrity: str = ""
+    message: str = ""
 
     @classmethod
     def from_api(cls, d: Mapping[str, Any]) -> "VerifyResult":
         return cls(
             batch_id=d.get("batch_id", ""),
             is_valid=bool(d.get("is_valid", False)),
+            num_records=int(d.get("num_logs", 0) or 0),
             original_merkle_root=d.get("original_merkle_root", ""),
             recalculated_merkle_root=d.get("recalculated_merkle_root", ""),
+            on_chain_merkle_root=d.get("on_chain_merkle_root", ""),
+            anchor_status=d.get("anchor_status", ""),
             integrity=d.get("integrity", ""),
+            message=d.get("message", ""),
         )
 
 
@@ -102,6 +119,7 @@ class Client:
             source=source,
             payload=payload,
             hash_fields=list(hash_fields) if hash_fields else None,
+            hash_version=CURRENT_HASH_VERSION,
         )
         rec.hash = rec.compute_hash()
 

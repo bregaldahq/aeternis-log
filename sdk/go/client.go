@@ -64,12 +64,13 @@ func (e *APIError) Error() string {
 // server-returned hash is then checked against the independently computed hash.
 func (c *Client) CreateRecord(ctx context.Context, domain, source string, payload map[string]interface{}, hashFields []string) (*Record, error) {
 	rec := &Record{
-		Domain:     domain,
-		ID:         newID(),
-		Timestamp:  time.Now().UTC().Format(time.RFC3339),
-		Source:     source,
-		Payload:    payload,
-		HashFields: hashFields,
+		Domain:      domain,
+		ID:          newID(),
+		Timestamp:   time.Now().UTC().Format(time.RFC3339),
+		Source:      source,
+		Payload:     payload,
+		HashFields:  hashFields,
+		HashVersion: CurrentHashVersion,
 	}
 	rec.Hash = rec.ComputeHash()
 
@@ -129,12 +130,22 @@ func (c *Client) BatchRecords(ctx context.Context, domain string) (*BatchResult,
 }
 
 // VerifyResult is the outcome of a server-side batch verification.
+//
+// OnChainMerkleRoot is the root read from the ledger. It is the value to compare
+// a locally recomputed root against (VerifyRecordsLocally). OriginalMerkleRoot
+// is only the root stored in the database. AnchorStatus tells whether the
+// verdict was decided against the ledger (ANCHORED) or only against local state
+// (UNKNOWN), or whether the batch is not on the ledger at all (UNANCHORED).
 type VerifyResult struct {
 	BatchID                string `json:"batch_id"`
 	IsValid                bool   `json:"is_valid"`
+	NumRecords             int    `json:"num_logs"`
 	OriginalMerkleRoot     string `json:"original_merkle_root"`
 	RecalculatedMerkleRoot string `json:"recalculated_merkle_root"`
+	OnChainMerkleRoot      string `json:"on_chain_merkle_root"`
+	AnchorStatus           string `json:"anchor_status"`
 	Integrity              string `json:"integrity"`
+	Message                string `json:"message"`
 }
 
 // VerifyBatch asks the server to verify a batch's integrity. A CORRUPTED batch
