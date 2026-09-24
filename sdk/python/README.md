@@ -32,7 +32,12 @@ print(batch.tx_id, batch.merkle_root, batch.channel)
 # Verify server-side (a CORRUPTED batch returns is_valid=False, it does not raise).
 result = client.verify_batch("audit", batch.batch_id)
 assert result.is_valid
+assert result.anchor_status == "ANCHORED"   # decided against the ledger, not local state
+print(result.on_chain_merkle_root)          # the root to trust for local verification
 ```
+
+Records created through the client are hashed under the server's current scheme
+(`CURRENT_HASH_VERSION`, v2), so the trustless check compares like with like.
 
 ### Trustless local verification
 
@@ -71,7 +76,7 @@ and want to confirm it matches what was anchored on-chain.
 # Fully offline: recompute the root and compare with the on-chain root.
 aeternislog verify --file records.csv --expected-root <root from the blockchain>
 
-# Or let the tool fetch the anchored root from the API by batch id.
+# Or let the tool fetch the on-chain root from the API by batch id.
 aeternislog verify --file records.csv --api http://host:5001 --domain audit --batch-id audit-...
 
 # Just print the Merkle root of a CSV.
@@ -79,13 +84,21 @@ aeternislog merkle --file records.csv
 
 # Hash a single record.
 aeternislog hash --id ID --timestamp 2026-06-06T00:00:00Z --source app --payload '{"k":"v"}'
+
+# Batches anchored under the legacy v1 scheme.
+aeternislog verify --file legacy.csv --expected-root <root> --hash-version 1
 ```
 
 `verify` exits `0` when **VALID** and `2` when **CORRUPTED**, so it drops into CI/cron.
+With `--api/--batch-id` it compares against the root **read from the ledger**
+(`on_chain_merkle_root`), never the one stored in the database. It refuses to
+compare (exit with an error) when the batch has no on-chain anchor
+(`anchor_status` other than `ANCHORED`).
 
 CSV columns: `id,timestamp,source,payload` (payload is a JSON object string); optional
-`hash_fields` (JSON array or comma-separated). Row order must match the anchored batch
-(the API returns records in batch order).
+`hash_fields` (JSON array or comma-separated) and `hash_version`. Rows without
+`hash_version` use `--hash-version`, which defaults to the current scheme (v2).
+Row order must match the anchored batch (the API returns records in batch order).
 
 ## Development
 

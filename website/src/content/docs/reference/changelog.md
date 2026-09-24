@@ -8,6 +8,20 @@ sidebar:
 A high-level log of notable changes. For the full commit history, see
 [GitHub](https://github.com/RicardoMBregalda/aeternis-log).
 
+## SDK & CLI verification fixes
+
+- **SDKs hash new records under v2.** The Go and Python clients now create
+  records with the server's current hash scheme, so the trustless
+  create-record check passes against a live API. Previously they computed the
+  legacy v1 hash locally and rejected every server response.
+- **CLI verifies v2 batches.** `aeternislog merkle|verify|hash` default to the
+  current scheme. A `hash_version` CSV column and a `--hash-version` flag cover
+  batches anchored under v1.
+- **CLI trusts the ledger, not the database.** `verify --api/--batch-id`
+  compares against the on-chain root and refuses batches that are not anchored.
+- **Verify results expose the anchor.** `VerifyResult` in both SDKs now carries
+  `on_chain_merkle_root`, `anchor_status`, the record count and the message.
+
 ## Production hardening
 
 A structured hardening pass across the stack:

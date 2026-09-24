@@ -12,7 +12,7 @@ import "github.com/RicardoMBregalda/aeternis-log/sdk/go"
 ## Usage
 
 ```go
-c := aeternislog.New("http://localhost:5001", anchor.WithAPIKey("my-key"))
+c := aeternislog.New("http://localhost:5001", aeternislog.WithAPIKey("my-key"))
 ctx := context.Background()
 
 // Create a record. The SDK generates the id/timestamp client-side and verifies
@@ -25,12 +25,17 @@ rec, err := c.CreateRecord(ctx, "contracts", "crm",
 // Batch the domain's pending records and anchor the Merkle root on-chain.
 batch, err := c.BatchRecords(ctx, "contracts")
 
-// Ask the server to verify a batch.
+// Ask the server to verify a batch. AnchorStatus "ANCHORED" means the verdict was
+// decided against the ledger; OnChainMerkleRoot is the root read from it.
 res, err := c.VerifyBatch(ctx, "contracts", batch.BatchID)
 
-// ...or verify locally, trusting only the anchored root (e.g. read from Fabric):
-ok := anchor.VerifyRecordsLocally(records, anchoredRoot)
+// ...or verify locally, trusting only the on-chain root:
+ok := aeternislog.VerifyRecordsLocally(records, res.OnChainMerkleRoot)
 ```
+
+Records created through the client are hashed under the server's current scheme
+(`aeternislog.CurrentHashVersion`, v2), so the trustless hash check compares like
+with like.
 
 ## Local (trustless) verification
 

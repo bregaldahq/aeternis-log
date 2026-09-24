@@ -120,7 +120,9 @@ Consequences:
    `CalculateRecordMerkleRoot` if the tree changes too. Bump
    `CurrentHashVersion` **last**.
 3. Mirror it in `sdk/go/record.go` and `sdk/python/aeternislog/record.py`,
-   updating their conformance tests to the same vector.
+   **bump their `CurrentHashVersion` / `CURRENT_HASH_VERSION`** (used by
+   create-record and the CLI default), and update their conformance tests and
+   test fakes to the same vector.
 4. Never alter `calculateHashV1`/`V2` — existing anchors depend on them
    byte-for-byte.
 5. Update `README.md`, `CLAUDE.md` (invariants), and the website pages
