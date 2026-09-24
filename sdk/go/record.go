@@ -13,6 +13,11 @@ import (
 	"hash"
 )
 
+// CurrentHashVersion is the integrity-hash scheme the server writes new records
+// with. Records created through this client are hashed under it, so the local
+// hash matches the server's. Must track the server's models.CurrentHashVersion.
+const CurrentHashVersion = 2
+
 // Merkle domain separators (v2): leaves (0x00) and internal nodes (0x01) are
 // hashed with distinct prefixes so the two can never be confused.
 const (

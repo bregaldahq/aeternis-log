@@ -54,12 +54,20 @@ The package installs an `aeternislog` command for auditors who hold a CSV export
 # Fully offline: recompute the root and compare with the on-chain root.
 aeternislog verify --file records.csv --expected-root <root>
 
-# Or let the tool fetch the anchored root from the API by batch id.
+# Or let the tool fetch the on-chain root from the API by batch id.
 aeternislog verify --file records.csv --api http://host:5001 --domain audit --batch-id audit-…
 
 aeternislog merkle --file records.csv     # print a CSV's Merkle root
+
+# Batches anchored under the legacy v1 scheme
+aeternislog verify --file legacy.csv --expected-root <root> --hash-version 1
 ```
 
 `verify` exits `0` for **VALID** and `2` for **CORRUPTED**, so it drops into
-CI/cron. CSV columns: `id,timestamp,source,payload`; row order must match the
-anchored batch.
+CI/cron. With `--api/--batch-id` it compares against the root read from the
+**ledger** (`on_chain_merkle_root`), never the database's copy, and refuses
+batches that are not anchored on-chain.
+
+CSV columns: `id,timestamp,source,payload`, plus optional `hash_fields` and
+`hash_version`. Rows without `hash_version` use `--hash-version` (default: the
+current scheme, v2). Row order must match the anchored batch.

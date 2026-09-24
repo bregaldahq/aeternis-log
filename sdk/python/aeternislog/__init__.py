@@ -14,11 +14,12 @@ verify integrity without trusting the API.
 """
 from .client import BatchResult, Client, VerifyResult
 from .errors import AeternisLogError, APIError, HashMismatchError
-from .record import Record, canonical, merkle_root, verify_records_locally
+from .record import CURRENT_HASH_VERSION, Record, canonical, merkle_root, verify_records_locally
 
 __version__ = "0.1.0"
 
 __all__ = [
+    "CURRENT_HASH_VERSION",
     "Client",
     "BatchResult",
     "VerifyResult",
